@@ -1,0 +1,1661 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark" />
+
+  <title>Compliment Generator • Midnight Minimal</title>
+  <meta name="description" content="A portfolio-grade compliment generator with personalization, history, favorites, copy/share, and a deterministic quality meter." />
+
+  <!-- Optional favicon in your project root -->
+  <link rel="icon" href="favicon.png" />
+
+  <!-- Fonts (Google Fonts). Falls back to system-ui if unavailable. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ==========================================================
+       Midnight Minimal — Design Tokens
+       ========================================================== */
+    :root {
+      --bg: #0B1020;
+      --surface: #121A2F;
+      --surface2: #17223D;
+      --border: #26314D;
+
+      --text: #EAF0FF;
+      --muted: #A9B4D0;
+
+      --accent: #3B82F6;
+      --accent2: #22D3EE;
+      --success: #22C55E;
+      --danger: #EF4444;
+
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --radius-sm: 10px;
+
+      --gap: 16px;
+
+      --font-heading: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      --font-body: "Inter", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+
+    * { box-sizing: border-box; }
+
+    /*
+      Background coverage fix:
+      - Use background-color on html + body
+      - Use min-height: 100vh (more reliable than height: 100%)
+    */
+    html {
+      background-color: var(--bg);
+      height: 100%;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      position: relative; /* ensures z-index layering is predictable */
+    }
+
+    /* Subtle ambient glow */
+    .bg-glow {
+      position: fixed;
+      inset: -20vh -30vw auto -30vw;
+      height: 60vh;
+      pointer-events: none;
+      background:
+        radial-gradient(closest-side, rgba(34, 211, 238, 0.16), transparent 70%),
+        radial-gradient(closest-side, rgba(59, 130, 246, 0.16), transparent 70%);
+      filter: blur(10px);
+      opacity: 0.9;
+      z-index: 0;
+    }
+
+    .wrap {
+      position: relative;
+      z-index: 1;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* Accessible focus rings */
+    :focus { outline: none; }
+    :focus-visible {
+      outline: 2px solid var(--accent2);
+      outline-offset: 2px;
+      border-radius: 8px;
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+      }
+    }
+
+    /* ==========================================================
+       Layout
+       ========================================================== */
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 28px 18px 40px;
+    }
+
+    header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .title {
+      display: grid;
+      gap: 6px;
+    }
+
+    h1 {
+      font-family: var(--font-heading);
+      letter-spacing: -0.02em;
+      margin: 0;
+      font-size: clamp(24px, 3.2vw, 34px);
+      line-height: 1.1;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      max-width: 64ch;
+      font-size: 14px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.12);
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: var(--gap);
+      align-items: start;
+    }
+
+    @media (max-width: 920px) {
+      main { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .card-h {
+      padding: 14px 16px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .card-h h2 {
+      font-family: var(--font-heading);
+      margin: 0;
+      font-size: 14px;
+      letter-spacing: 0.01em;
+    }
+
+    .card-b { padding: 16px; }
+
+    /* ==========================================================
+       Controls
+       ========================================================== */
+    form {
+      display: grid;
+      gap: 12px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+    }
+
+    @media (max-width: 720px) {
+      .grid-3 { grid-template-columns: 1fr; }
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    select, textarea, input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font: inherit;
+      transition: border-color 140ms ease, transform 140ms ease, background 140ms ease;
+    }
+
+    select:hover, textarea:hover, input:hover { border-color: rgba(34, 211, 238, 0.5); }
+
+    textarea {
+      min-height: 76px;
+      resize: vertical;
+    }
+
+    .help {
+      margin: 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: transform 120ms ease, border-color 140ms ease, background 140ms ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      user-select: none;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(59, 130, 246, 0.65);
+      background: rgba(59, 130, 246, 0.12);
+    }
+
+    .btn:active { transform: translateY(0); }
+
+    .btn.primary {
+      border-color: rgba(59, 130, 246, 0.55);
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.20), rgba(34, 211, 238, 0.12));
+    }
+
+    .btn.primary:hover {
+      border-color: rgba(34, 211, 238, 0.80);
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.28), rgba(34, 211, 238, 0.16));
+    }
+
+    .btn.ghost {
+      background: transparent;
+    }
+
+    .btn.danger {
+      border-color: rgba(239, 68, 68, 0.55);
+      background: rgba(239, 68, 68, 0.10);
+    }
+
+    .btn.danger:hover {
+      border-color: rgba(239, 68, 68, 0.85);
+      background: rgba(239, 68, 68, 0.14);
+    }
+
+    .btn[disabled] {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .btn .icon {
+      width: 16px;
+      height: 16px;
+      display: inline-block;
+    }
+
+    .split {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+    }
+
+    .status {
+      min-height: 20px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .status strong { color: var(--text); }
+
+    .status .ok { color: var(--success); }
+    .status .bad { color: var(--danger); }
+
+    /* ==========================================================
+       Output
+       ========================================================== */
+    .output {
+      padding: 14px 16px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.03);
+      display: grid;
+      gap: 12px;
+    }
+
+    .compliment {
+      font-size: 18px;
+      line-height: 1.35;
+      margin: 0;
+      letter-spacing: -0.01em;
+    }
+
+    .compliment.muted { color: rgba(234, 240, 255, 0.74); }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .chip {
+      font-size: 12px;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: rgba(255, 255, 255, 0.03);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .spark {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(34, 211, 238, 0.8);
+      box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.14);
+    }
+
+    .meter {
+      display: grid;
+      gap: 8px;
+    }
+
+    .meter-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .meter-top .label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .meter-top .grade {
+      font-family: var(--font-heading);
+      font-size: 14px;
+      letter-spacing: 0.02em;
+    }
+
+    .bar {
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .bar > span {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      transition: width 260ms ease;
+    }
+
+    /* ==========================================================
+       Lists
+       ========================================================== */
+    .side {
+      display: grid;
+      gap: var(--gap);
+    }
+
+    .list {
+      display: grid;
+      gap: 10px;
+      padding: 0;
+      margin: 0;
+      list-style: none;
+    }
+
+    .item {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.02);
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .item p {
+      margin: 0;
+      font-size: 13px;
+      color: rgba(234, 240, 255, 0.88);
+    }
+
+    .item .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .item .actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .mini {
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    .empty {
+      border: 1px dashed rgba(38, 49, 77, 0.9);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    /* ==========================================================
+       Footer / About
+       ========================================================== */
+    footer {
+      margin-top: 18px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--muted);
+    }
+
+    footer h3 {
+      margin: 0 0 8px;
+      font-family: var(--font-heading);
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    footer p { margin: 0; font-size: 13px; }
+
+    footer ul {
+      margin: 10px 0 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 6px;
+      font-size: 13px;
+    }
+
+    .fineprint {
+      margin-top: 12px;
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    /* Utility */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bg-glow" aria-hidden="true"></div>
+
+  <div class="wrap">
+    <header>
+      <div class="title">
+        <h1>Compliment Generator</h1>
+        <p class="subtitle">
+          A delightful, safe mini-product for generating tasteful compliments with personalization, copy/share, and persistent history + favorites.
+        </p>
+      </div>
+      <div class="badge" title="Portfolio-grade: deterministic rules, accessibility, localStorage persistence">
+        <span class="dot" aria-hidden="true"></span>
+        <span>Midnight Minimal • Vanilla</span>
+      </div>
+    </header>
+
+    <main>
+      <!-- Generator Panel -->
+      <section class="card" aria-labelledby="gen-title">
+        <div class="card-h">
+          <h2 id="gen-title">Generate</h2>
+          <button id="resetAppBtn" class="btn ghost mini" type="button" title="Reset selections and clear current compliment">
+            <span class="icon" aria-hidden="true">↺</span>
+            Reset
+          </button>
+        </div>
+        <div class="card-b">
+          <form id="controls" novalidate>
+            <div class="grid-3" role="group" aria-label="Personalization controls">
+              <label>
+                Target
+                <select id="targetSel" name="target">
+                  <option value="friend">Friend</option>
+                  <option value="coworker">Coworker</option>
+                  <option value="partner">Partner</option>
+                  <option value="customer">Customer</option>
+                </select>
+              </label>
+
+              <label>
+                Tone
+                <select id="toneSel" name="tone">
+                  <option value="sincere">Sincere</option>
+                  <option value="funny">Funny</option>
+                  <option value="hype">Hype</option>
+                  <option value="professional">Professional</option>
+                </select>
+              </label>
+
+              <label>
+                Context
+                <select id="contextSel" name="context">
+                  <option value="none">No specific context</option>
+                  <option value="birthday">Birthday</option>
+                  <option value="interview">Interview</option>
+                  <option value="gym">Gym</option>
+                  <option value="teamwork">Teamwork</option>
+                  <option value="promotion">Promotion</option>
+                  <option value="customerWin">Customer win</option>
+                  <option value="thanks">Thank you</option>
+                </select>
+              </label>
+            </div>
+
+            <label>
+              Extra details (optional)
+              <textarea id="detailTxt" name="details" placeholder="Example: “helped me ship a deadline” or “kept everyone calm”"></textarea>
+              <span class="help">We keep it friendly and skip anything that looks creepy or offensive.</span>
+            </label>
+
+            <div class="pill-row">
+              <button id="generateBtn" class="btn primary" type="button">
+                <span class="icon" aria-hidden="true">✨</span>
+                Generate compliment
+              </button>
+              <button id="copyBtn" class="btn" type="button" disabled>
+                <span class="icon" aria-hidden="true">⧉</span>
+                Copy
+              </button>
+              <button id="shareBtn" class="btn" type="button" disabled>
+                <span class="icon" aria-hidden="true">⇪</span>
+                Share
+              </button>
+              <button id="favBtn" class="btn" type="button" disabled aria-pressed="false">
+                <span class="icon" aria-hidden="true">☆</span>
+                Favorite
+              </button>
+            </div>
+
+            <div class="split">
+              <p class="status" id="status" role="status" aria-live="polite" aria-atomic="true"></p>
+              <p class="status" id="error" role="alert" aria-live="assertive" aria-atomic="true"></p>
+            </div>
+          </form>
+
+          <div class="output" aria-label="Generated compliment" style="margin-top: 14px;">
+            <p id="complimentText" class="compliment muted">Choose options, then hit “Generate compliment”.</p>
+
+            <div class="meta-row" id="metaRow" hidden>
+              <span class="chip"><span class="spark" aria-hidden="true"></span><span id="metaTarget">Target</span></span>
+              <span class="chip"><span class="spark" aria-hidden="true"></span><span id="metaTone">Tone</span></span>
+              <span class="chip"><span class="spark" aria-hidden="true"></span><span id="metaContext">Context</span></span>
+            </div>
+
+            <div class="meter" id="qualityMeter" hidden>
+              <div class="meter-top">
+                <span class="label">Quality Meter</span>
+                <span class="grade" id="qualityGrade">—</span>
+              </div>
+              <div class="bar" aria-label="Quality score">
+                <span id="qualityBar" aria-hidden="true"></span>
+              </div>
+              <p class="help" id="qualityHelp">Based on specificity, tone match, and freshness (deterministic).</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Side Panels -->
+      <aside class="side" aria-label="History and favorites">
+        <section class="card" aria-labelledby="hist-title">
+          <div class="card-h">
+            <h2 id="hist-title">History</h2>
+            <button id="clearHistoryBtn" class="btn danger mini" type="button" title="Clear history">Clear</button>
+          </div>
+          <div class="card-b">
+            <p class="help">Recent compliments (saved automatically). Click “Use” to bring one back.</p>
+            <div id="historyEmpty" class="empty" hidden>No history yet. Generate a compliment and it will appear here.</div>
+            <ul id="historyList" class="list" aria-label="Recent compliments"></ul>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="fav-title">
+          <div class="card-h">
+            <h2 id="fav-title">Favorites</h2>
+            <button id="clearFavBtn" class="btn danger mini" type="button" title="Clear favorites">Clear</button>
+          </div>
+          <div class="card-b">
+            <p class="help">Your starred compliments (persisted via localStorage).</p>
+            <div id="favEmpty" class="empty" hidden>No favorites yet. Star a compliment to save it here.</div>
+            <ul id="favList" class="list" aria-label="Favorite compliments"></ul>
+          </div>
+        </section>
+      </aside>
+    </main>
+
+    <footer aria-label="About and quality meter scale" style="margin-top: 16px;">
+      <h3>About the Quality Meter</h3>
+      <p>
+        The “Quality Meter” gives reaction-time-style feedback, but for compliment craft. It’s a deterministic score based on:
+        specificity (includes a concrete trait/impact), tone alignment, context usage, and freshness (not repeating recent items).
+      </p>
+      <ul>
+        <li><strong>Amazing</strong> — crisp, specific, tone-perfect, and fresh.</li>
+        <li><strong>Very Good</strong> — strong tone + specificity with minor room to tighten.</li>
+        <li><strong>Good</strong> — solid and safe, a bit general or slightly long.</li>
+        <li><strong>Average</strong> — works, but generic or missing context/impact.</li>
+        <li><strong>Below Average</strong> — too short/long, weak match, or low novelty (still safe).</li>
+      </ul>
+      <p class="fineprint">Tip: Add a small “Extra detail” (e.g., “helped me ship the deadline”) for a higher-quality, more personal compliment.</p>
+    </footer>
+  </div>
+
+  <script>
+    "use strict";
+
+    /* ==========================================================
+       Data Layer
+       - Templates and phrase banks by target/tone/context
+       - Safety notes: keep compliments friendly, non-creepy, non-sexual,
+         and focused on effort, character, impact, and professionalism.
+       ========================================================== */
+
+    const DATA = {
+      targets: {
+        friend: {
+          subject: ["you", "you honestly"],
+          traits: [
+            "have a rare mix of kindness and backbone",
+            "make people feel included without even trying",
+            "show up consistently — and it matters",
+            "have great instincts and even better intentions",
+            "bring calm energy when things get chaotic",
+            "listen in a way that makes people feel seen"
+          ],
+          impacts: [
+            "Being around you makes hard days feel lighter.",
+            "You make the people around you better just by being yourself.",
+            "I’m genuinely lucky to have you in my corner.",
+            "You turn small moments into good memories.",
+            "You’re the kind of friend people quietly hope for."
+          ]
+        },
+
+        coworker: {
+          subject: ["you", "your work"],
+          traits: [
+            "bring clarity when everyone else is stuck",
+            "make complex things feel manageable",
+            "have strong judgment and steady execution",
+            "communicate with both precision and empathy",
+            "raise the bar without making it stressful",
+            "handle pressure with calm professionalism"
+          ],
+          impacts: [
+            "It genuinely improves the team’s momentum.",
+            "It makes collaboration feel easy.",
+            "It’s the kind of consistency teams rely on.",
+            "You make everyone around you sharper.",
+            "It’s a big reason things ship smoothly."
+          ]
+        },
+
+        partner: {
+          subject: ["you", "you always"],
+          traits: [
+            "make home feel like a safe place",
+            "care in the details — it never goes unnoticed",
+            "balance strength and softness beautifully",
+            "bring out the best in me without forcing it",
+            "make even ordinary days feel meaningful",
+            "show love in steady, dependable ways"
+          ],
+          impacts: [
+            "I feel more grounded with you.",
+            "You make me want to be better — gently.",
+            "I appreciate you more than I’m probably saying out loud.",
+            "You’re a big part of what makes life feel good.",
+            "I’m proud of us — and especially proud of you."
+          ]
+        },
+
+        customer: {
+          subject: ["you", "your feedback"],
+          traits: [
+            "are thoughtful and clear about what you need",
+            "make collaboration genuinely enjoyable",
+            "ask great questions that improve the outcome",
+            "communicate with professionalism and respect",
+            "bring a strong point of view — in the best way",
+            "set a standard for how partnerships should feel"
+          ],
+          impacts: [
+            "It helps us do our best work.",
+            "It makes the process smoother for everyone.",
+            "It’s genuinely appreciated.",
+            "It leads to better results — quickly.",
+            "It’s the kind of partnership teams remember."
+          ]
+        }
+      },
+
+      tones: {
+        sincere: {
+          openers: [
+            "I just want to say", "Honestly", "I really appreciate that", "I admire how"
+          ],
+          closers: [
+            "Thank you for being you.",
+            "I mean that.",
+            "You deserve to hear it.",
+            "I’m grateful for you."
+          ],
+          punctuation: "."
+        },
+
+        funny: {
+          openers: [
+            "Real talk:", "Hot take:", "Not to be dramatic, but", "Okay, quick announcement:"
+          ],
+          closers: [
+            "Respectfully… you’re elite.",
+            "That’s the tweet.",
+            "No notes.",
+            "Ten out of ten, would recommend."
+          ],
+          punctuation: "!"
+        },
+
+        hype: {
+          openers: [
+            "Okay listen —", "Let’s go:", "I’m saying it with my whole chest:", "Big energy:"
+          ],
+          closers: [
+            "You’re doing amazing. Keep going.",
+            "We love to see it.",
+            "Stay unstoppable.",
+            "You’re built different (in a good way)."
+          ],
+          punctuation: "!"
+        },
+
+        professional: {
+          openers: [
+            "I want to acknowledge", "Thank you for", "I’d like to recognize", "I appreciate how"
+          ],
+          closers: [
+            "It’s a pleasure working with you.",
+            "Your contribution is valued.",
+            "Thanks for raising the standard.",
+            "I appreciate the professionalism."
+          ],
+          punctuation: "."
+        }
+      },
+
+      contexts: {
+        none: {
+          label: "No specific context",
+          phrases: ["", ""],
+          hints: [""]
+        },
+        birthday: {
+          label: "Birthday",
+          phrases: ["On your birthday", "Today"],
+          hints: ["hope your day is full of good energy", "you deserve to be celebrated"]
+        },
+        interview: {
+          label: "Interview",
+          phrases: ["Before your interview", "Going into your interview"],
+          hints: ["you’ve put in the work", "your preparation shows"]
+        },
+        gym: {
+          label: "Gym",
+          phrases: ["At the gym", "With your training"],
+          hints: ["your discipline is loud", "your consistency is paying off"]
+        },
+        teamwork: {
+          label: "Teamwork",
+          phrases: ["On the team", "In our teamwork"],
+          hints: ["you make collaboration smooth", "you elevate the whole group"]
+        },
+        promotion: {
+          label: "Promotion",
+          phrases: ["About your promotion", "With this promotion"],
+          hints: ["it’s well-earned", "you’ve been leveling up for a while"]
+        },
+        customerWin: {
+          label: "Customer win",
+          phrases: ["On this win", "With this result"],
+          hints: ["you were a key driver", "your clarity made it possible"]
+        },
+        thanks: {
+          label: "Thank you",
+          phrases: ["Just wanted to say", "Quick thank you:"],
+          hints: ["it didn’t go unnoticed", "it made a real difference"]
+        }
+      },
+
+      sharedTraits: [
+        "thoughtful", "reliable", "sharp", "kind", "steady", "creative", "disciplined", "supportive", "calm", "consistent"
+      ]
+    };
+
+    /* ==========================================================
+       State + Persistence
+       ========================================================== */
+
+    const LS_KEYS = {
+      history: "cg_v1_history",
+      favorites: "cg_v1_favorites",
+      prefs: "cg_v1_prefs"
+    };
+
+    const MAX_HISTORY = 12;
+
+    const state = {
+      phase: "idle", // idle | generating | generated | error
+      prefs: {
+        target: "friend",
+        tone: "sincere",
+        context: "none",
+        details: ""
+      },
+      current: null, // { id, text, meta, quality }
+      history: [], // array of { id, text, meta, quality, ts }
+      favorites: {}, // id -> item
+      statusMsg: "",
+      errorMsg: "",
+      lastText: "" // guard against immediate repeats
+    };
+
+    function loadJSON(key, fallback) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return fallback;
+        return JSON.parse(raw);
+      } catch {
+        return fallback;
+      }
+    }
+
+    function saveJSON(key, value) {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+      } catch {
+        // If storage is blocked or full, fail silently but keep UX stable.
+      }
+    }
+
+    function loadAll() {
+      const savedHistory = loadJSON(LS_KEYS.history, []);
+      const savedFavs = loadJSON(LS_KEYS.favorites, {});
+      const savedPrefs = loadJSON(LS_KEYS.prefs, null);
+
+      if (Array.isArray(savedHistory)) state.history = savedHistory;
+      if (savedFavs && typeof savedFavs === "object") state.favorites = savedFavs;
+      if (savedPrefs && typeof savedPrefs === "object") {
+        state.prefs = { ...state.prefs, ...savedPrefs };
+      }
+    }
+
+    function persistAll() {
+      saveJSON(LS_KEYS.history, state.history);
+      saveJSON(LS_KEYS.favorites, state.favorites);
+      saveJSON(LS_KEYS.prefs, state.prefs);
+    }
+
+    /* ==========================================================
+       DOM
+       ========================================================== */
+
+    const $ = (sel) => document.querySelector(sel);
+
+    const els = {
+      targetSel: $("#targetSel"),
+      toneSel: $("#toneSel"),
+      contextSel: $("#contextSel"),
+      detailTxt: $("#detailTxt"),
+
+      generateBtn: $("#generateBtn"),
+      copyBtn: $("#copyBtn"),
+      shareBtn: $("#shareBtn"),
+      favBtn: $("#favBtn"),
+      resetAppBtn: $("#resetAppBtn"),
+
+      clearHistoryBtn: $("#clearHistoryBtn"),
+      clearFavBtn: $("#clearFavBtn"),
+
+      status: $("#status"),
+      error: $("#error"),
+
+      complimentText: $("#complimentText"),
+      metaRow: $("#metaRow"),
+      metaTarget: $("#metaTarget"),
+      metaTone: $("#metaTone"),
+      metaContext: $("#metaContext"),
+
+      qualityMeter: $("#qualityMeter"),
+      qualityGrade: $("#qualityGrade"),
+      qualityBar: $("#qualityBar"),
+      qualityHelp: $("#qualityHelp"),
+
+      historyList: $("#historyList"),
+      historyEmpty: $("#historyEmpty"),
+
+      favList: $("#favList"),
+      favEmpty: $("#favEmpty")
+    };
+
+    /* ==========================================================
+       Utilities
+       ========================================================== */
+
+    function clamp(n, min, max) {
+      return Math.max(min, Math.min(max, n));
+    }
+
+    // Stable hash for IDs (cyrb53 variant)
+    function hashId(str) {
+      let h1 = 0xdeadbeef ^ str.length;
+      let h2 = 0x41c6ce57 ^ str.length;
+      for (let i = 0; i < str.length; i++) {
+        const ch = str.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+      }
+      h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+      h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+      return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+    }
+
+    function pick(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function normalizeText(text) {
+      let t = String(text || "").trim();
+      t = t.replace(/\s+/g, " ");
+      if (!t) return "";
+
+      // Ensure first character is uppercase
+      t = t.charAt(0).toUpperCase() + t.slice(1);
+
+      // Ensure it ends with punctuation
+      if (!/[.!?]$/.test(t)) t += ".";
+
+      // Avoid double punctuation like "!!." or ".."
+      t = t.replace(/([!?\.])\1+/g, "$1");
+      return t;
+    }
+
+    function fmtLabel(val) {
+      return String(val || "").replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
+    }
+
+    function escapeHTML(str) {
+      return String(str)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    /* ==========================================================
+       Safety: Details Filtering
+       ========================================================== */
+
+    const FILTERED_TERMS = [
+      "sexy", "hot", "nude", "naked", "bed", "hookup", "hook up", "kiss", "body", "boobs", "ass",
+      "hate", "slur", "racist", "kill", "die", "violent", "weapon",
+      "creep", "stalk", "obsessed"
+    ];
+
+    function sanitizeDetails(raw) {
+      let text = String(raw || "").trim();
+      if (!text) return { text: "", changed: false };
+
+      text = text.replace(/\s+/g, " ").slice(0, 120);
+
+      const lowered = text.toLowerCase();
+      const hit = FILTERED_TERMS.some((term) => lowered.includes(term));
+
+      if (hit) {
+        return { text: "", changed: true };
+      }
+
+      text = text.replace(/[\r\n]+/g, " ");
+      return { text, changed: false };
+    }
+
+    /* ==========================================================
+       Compliment Generation
+       ========================================================== */
+
+    function buildCompliment(meta) {
+      const { target, tone, context, details } = meta;
+      const t = DATA.targets[target];
+      const o = DATA.tones[tone];
+      const c = DATA.contexts[context];
+
+      const opener = pick(o.openers);
+      const subject = pick(t.subject);
+      const trait = pick(t.traits);
+
+      const contextPhrase = pick(c.phrases);
+      const contextHint = pick(c.hints);
+
+      const sharedTrait = pick(DATA.sharedTraits);
+
+      const parts = [];
+
+      if (contextPhrase) {
+        parts.push(`${contextPhrase}, ${opener.toLowerCase()} ${subject} ${trait}`);
+      } else {
+        parts.push(`${opener} ${subject} ${trait}`);
+      }
+
+      if (details) {
+        parts.push(`— especially when ${details}`);
+      } else if (contextHint) {
+        parts.push(`— ${contextHint}`);
+      } else {
+        parts.push(`— it’s honestly ${sharedTrait} and rare`);
+      }
+
+      const impact = pick(t.impacts);
+      const closer = pick(o.closers);
+      const endPunc = o.punctuation;
+
+      let sentence = `${parts.join(" ")}. ${impact} ${closer}`;
+      sentence = sentence.replace(/\s+—\s+/g, " — ");
+
+      if (tone === "hype" || tone === "funny") {
+        sentence = sentence.replace(/[.!?]$/g, "");
+        sentence += endPunc;
+      }
+
+      return normalizeText(sentence);
+    }
+
+    function generateCompliment() {
+      const { target, tone, context } = state.prefs;
+
+      if (!DATA.targets[target]) throw new Error("Please choose a valid target.");
+      if (!DATA.tones[tone]) throw new Error("Please choose a valid tone.");
+      if (!DATA.contexts[context]) throw new Error("Please choose a valid context.");
+
+      const sanitized = sanitizeDetails(state.prefs.details);
+      const meta = {
+        target,
+        tone,
+        context,
+        details: sanitized.text
+      };
+
+      if (sanitized.changed) {
+        setStatus("We skipped some extra details to keep it friendly.");
+      }
+
+      let text = "";
+      let attempts = 0;
+      while (attempts < 8) {
+        text = buildCompliment(meta);
+        if (text && text !== state.lastText) break;
+        attempts++;
+      }
+
+      if (text === state.lastText) {
+        text = normalizeText(text + " You’re appreciated.");
+      }
+
+      const id = hashId(`${meta.target}|${meta.tone}|${meta.context}|${text}`);
+      const quality = scoreQuality(text, meta);
+
+      return {
+        id,
+        text,
+        meta,
+        quality,
+        ts: Date.now()
+      };
+    }
+
+    /* ==========================================================
+       Quality Meter (Deterministic)
+       ========================================================== */
+
+    function scoreQuality(text, meta) {
+      const words = text.split(/\s+/).filter(Boolean);
+      const wordCount = words.length;
+
+      const idealMin = 14;
+      const idealMax = 22;
+      let lengthScore = 30;
+      if (wordCount < idealMin) lengthScore -= (idealMin - wordCount) * 2.2;
+      if (wordCount > idealMax) lengthScore -= (wordCount - idealMax) * 1.6;
+      lengthScore = clamp(lengthScore, 0, 30);
+
+      let specificity = 0;
+      if (text.includes("—")) specificity += 12;
+      if (/[.!?]\s+/.test(text)) specificity += 10;
+
+      let contextScore = 0;
+      if (meta.context !== "none") {
+        const ctx = DATA.contexts[meta.context];
+        const hasPhrase = ctx.phrases.some((p) => p && text.toLowerCase().includes(p.toLowerCase()));
+        const hasHint = ctx.hints.some((h) => h && text.toLowerCase().includes(h.toLowerCase()));
+        contextScore = (hasPhrase ? 8 : 0) + (hasHint ? 6 : 0);
+      } else {
+        contextScore = 6;
+      }
+
+      let toneScore = 0;
+      const lower = text.toLowerCase();
+      if (meta.tone === "professional") {
+        const formalTokens = ["acknowledge", "appreciate", "recognize", "valued", "professionalism", "contribution"];
+        toneScore += formalTokens.some((t) => lower.includes(t)) ? 16 : 10;
+        toneScore += text.includes("!") ? 0 : 6;
+      }
+      if (meta.tone === "sincere") {
+        toneScore += ["appreciate", "admire", "grateful", "mean that"].some((t) => lower.includes(t)) ? 14 : 10;
+        toneScore += text.includes("!") ? 2 : 6;
+      }
+      if (meta.tone === "hype") {
+        toneScore += text.includes("!") ? 16 : 10;
+        toneScore += ["let’s go", "big energy", "unstoppable", "amazing"].some((t) => lower.includes(t)) ? 6 : 2;
+      }
+      if (meta.tone === "funny") {
+        toneScore += text.includes("!") ? 14 : 10;
+        toneScore += ["that’s the tweet", "no notes", "respectfully", "ten out of ten"].some((t) => lower.includes(t)) ? 8 : 3;
+      }
+      toneScore = clamp(toneScore, 0, 22);
+
+      let novelty = 18;
+      const recent = state.history.slice(0, 6);
+      if (recent.some((h) => h.text === text)) novelty -= 12;
+      if (state.history.some((h) => h.text === text)) novelty -= 6;
+      novelty = clamp(novelty, 0, 18);
+
+      const score = clamp(Math.round(lengthScore + specificity + contextScore + toneScore + novelty), 0, 100);
+      const grade =
+        score >= 85 ? "Amazing" :
+        score >= 70 ? "Very Good" :
+        score >= 55 ? "Good" :
+        score >= 40 ? "Average" :
+        "Below Average";
+
+      const reasonBits = [];
+      reasonBits.push(wordCount >= idealMin && wordCount <= idealMax ? "good length" : "length could be tighter");
+      reasonBits.push(meta.context !== "none" ? "context-aware" : "general-purpose");
+      reasonBits.push(novelty >= 12 ? "fresh" : "less novel");
+
+      return { score, grade, detail: reasonBits.join(" • ") };
+    }
+
+    /* ==========================================================
+       Copy / Share
+       ========================================================== */
+
+    async function copyToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        setStatus("Copied to clipboard.", { ok: true });
+        return true;
+      } catch {
+        try {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          ta.setAttribute("readonly", "");
+          ta.style.position = "fixed";
+          ta.style.top = "-9999px";
+          document.body.appendChild(ta);
+          ta.select();
+          const ok = document.execCommand("copy");
+          document.body.removeChild(ta);
+          if (ok) setStatus("Copied to clipboard.", { ok: true });
+          else setError("Could not copy. Select the text and copy manually.");
+          return ok;
+        } catch {
+          setError("Copy failed. Your browser may block clipboard access.");
+          return false;
+        }
+      }
+    }
+
+    function buildShareUrl(item) {
+      const url = new URL(window.location.href);
+      url.searchParams.set("c", item.text);
+      url.searchParams.set("t", item.meta.tone);
+      url.searchParams.set("g", item.meta.target);
+      url.searchParams.set("x", item.meta.context);
+      url.searchParams.set("q", String(item.quality.score));
+      return url.toString();
+    }
+
+    async function shareCompliment(item) {
+      const shareUrl = buildShareUrl(item);
+      const payload = {
+        title: "Compliment Generator",
+        text: item.text,
+        url: shareUrl
+      };
+
+      if (navigator.share) {
+        try {
+          await navigator.share(payload);
+          setStatus("Shared successfully.", { ok: true });
+          return;
+        } catch {
+          // fall back
+        }
+      }
+
+      const ok = await copyToClipboard(shareUrl);
+      if (ok) setStatus("Share link copied. Paste it anywhere.", { ok: true });
+    }
+
+    /* ==========================================================
+       History / Favorites
+       ========================================================== */
+
+    function addToHistory(item) {
+      state.history = state.history.filter((h) => h.text !== item.text);
+      state.history.unshift(item);
+      state.history = state.history.slice(0, 12);
+      persistAll();
+    }
+
+    function isFavorite(id) {
+      return Boolean(state.favorites[id]);
+    }
+
+    function toggleFavorite(item) {
+      if (!item) return;
+      if (isFavorite(item.id)) {
+        delete state.favorites[item.id];
+        setStatus("Removed from favorites.", { ok: true });
+      } else {
+        state.favorites[item.id] = item;
+        setStatus("Saved to favorites.", { ok: true });
+      }
+      persistAll();
+    }
+
+    function clearHistory() {
+      state.history = [];
+      persistAll();
+      setStatus("History cleared.", { ok: true });
+    }
+
+    function clearFavorites() {
+      state.favorites = {};
+      persistAll();
+      setStatus("Favorites cleared.", { ok: true });
+    }
+
+    /* ==========================================================
+       State Updates + Render
+       ========================================================== */
+
+    let statusTimer = null;
+
+    function setStatus(msg, opts = {}) {
+      state.statusMsg = msg || "";
+      state.errorMsg = "";
+      renderStatus(opts);
+      if (msg) {
+        clearTimeout(statusTimer);
+        statusTimer = setTimeout(() => {
+          state.statusMsg = "";
+          renderStatus();
+        }, 2500);
+      }
+    }
+
+    function setError(msg) {
+      state.errorMsg = msg || "";
+      if (msg) state.statusMsg = "";
+      renderStatus();
+    }
+
+    function renderStatus(opts = {}) {
+      const ok = opts.ok ? "<span class=\"ok\"><strong>✓</strong></span> " : "";
+      els.status.innerHTML = state.statusMsg ? `${ok}${escapeHTML(state.statusMsg)}` : "";
+      els.error.innerHTML = state.errorMsg ? `<span class=\"bad\"><strong>!</strong></span> ${escapeHTML(state.errorMsg)}` : "";
+    }
+
+    function setPhase(phase) {
+      state.phase = phase;
+      render();
+    }
+
+    function render() {
+      els.targetSel.value = state.prefs.target;
+      els.toneSel.value = state.prefs.tone;
+      els.contextSel.value = state.prefs.context;
+      els.detailTxt.value = state.prefs.details;
+
+      const hasCurrent = Boolean(state.current && state.current.text);
+      const generating = state.phase === "generating";
+
+      els.generateBtn.disabled = generating;
+      els.copyBtn.disabled = !hasCurrent || generating;
+      els.shareBtn.disabled = !hasCurrent || generating;
+      els.favBtn.disabled = !hasCurrent || generating;
+
+      if (!hasCurrent) {
+        els.complimentText.textContent = generating ? "Generating…" : "Choose options, then hit “Generate compliment”.";
+        els.complimentText.classList.add("muted");
+        els.metaRow.hidden = true;
+        els.qualityMeter.hidden = true;
+      } else {
+        els.complimentText.textContent = state.current.text;
+        els.complimentText.classList.remove("muted");
+        els.metaRow.hidden = false;
+        els.qualityMeter.hidden = false;
+
+        els.metaTarget.textContent = `Target: ${fmtLabel(state.current.meta.target)}`;
+        els.metaTone.textContent = `Tone: ${fmtLabel(state.current.meta.tone)}`;
+        els.metaContext.textContent = `Context: ${DATA.contexts[state.current.meta.context]?.label || fmtLabel(state.current.meta.context)}`;
+
+        els.qualityGrade.textContent = `${state.current.quality.grade} (${state.current.quality.score})`;
+        els.qualityHelp.textContent = state.current.quality.detail;
+        els.qualityBar.style.width = `${clamp(state.current.quality.score, 0, 100)}%`;
+
+        const fav = isFavorite(state.current.id);
+        els.favBtn.setAttribute("aria-pressed", String(fav));
+        els.favBtn.innerHTML = fav
+          ? '<span class="icon" aria-hidden="true">★</span> Favorited'
+          : '<span class="icon" aria-hidden="true">☆</span> Favorite';
+      }
+
+      els.historyList.innerHTML = "";
+      els.historyEmpty.hidden = state.history.length > 0;
+      els.clearHistoryBtn.disabled = state.history.length === 0;
+      for (const item of state.history) {
+        els.historyList.appendChild(renderListItem(item));
+      }
+
+      const favItems = Object.values(state.favorites).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+      els.favList.innerHTML = "";
+      els.favEmpty.hidden = favItems.length > 0;
+      els.clearFavBtn.disabled = favItems.length === 0;
+      for (const item of favItems) {
+        els.favList.appendChild(renderListItem(item));
+      }
+
+      if (hasCurrent) {
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.set("c", state.current.text);
+          url.searchParams.set("t", state.current.meta.tone);
+          url.searchParams.set("g", state.current.meta.target);
+          url.searchParams.set("x", state.current.meta.context);
+          url.searchParams.set("q", String(state.current.quality.score));
+          window.history.replaceState(null, "", url.toString());
+        } catch {}
+      }
+    }
+
+    function renderListItem(item) {
+      const li = document.createElement("li");
+      li.className = "item";
+
+      const p = document.createElement("p");
+      p.textContent = item.text;
+
+      const row = document.createElement("div");
+      row.className = "row";
+
+      const chips = document.createElement("div");
+      chips.className = "meta-row";
+
+      const chip1 = document.createElement("span");
+      chip1.className = "chip";
+      chip1.textContent = fmtLabel(item.meta?.tone || "");
+
+      const chip2 = document.createElement("span");
+      chip2.className = "chip";
+      chip2.textContent = fmtLabel(item.meta?.target || "");
+
+      const chip3 = document.createElement("span");
+      chip3.className = "chip";
+      chip3.textContent = item.quality?.grade ? `${item.quality.grade}` : "";
+
+      chips.append(chip1, chip2);
+      if (item.meta?.context && item.meta.context !== "none") chips.append(chip3);
+
+      const actions = document.createElement("div");
+      actions.className = "actions";
+
+      const useBtn = document.createElement("button");
+      useBtn.type = "button";
+      useBtn.className = "btn mini";
+      useBtn.textContent = "Use";
+      useBtn.addEventListener("click", () => {
+        state.current = item;
+        state.lastText = item.text;
+        setPhase("generated");
+        setStatus("Loaded from list.", { ok: true });
+      });
+
+      const copyBtn = document.createElement("button");
+      copyBtn.type = "button";
+      copyBtn.className = "btn mini";
+      copyBtn.textContent = "Copy";
+      copyBtn.addEventListener("click", async () => {
+        await copyToClipboard(item.text);
+      });
+
+      const starBtn = document.createElement("button");
+      starBtn.type = "button";
+      starBtn.className = "btn mini";
+      const starred = isFavorite(item.id);
+      starBtn.setAttribute("aria-pressed", String(starred));
+      starBtn.textContent = starred ? "★" : "☆";
+      starBtn.title = starred ? "Remove from favorites" : "Add to favorites";
+      starBtn.addEventListener("click", () => {
+        toggleFavorite(item);
+        render();
+      });
+
+      actions.append(useBtn, copyBtn, starBtn);
+
+      row.append(chips, actions);
+      li.append(p, row);
+      return li;
+    }
+
+    /* ==========================================================
+       Actions
+       ========================================================== */
+
+    function readPrefsFromUI() {
+      state.prefs.target = els.targetSel.value;
+      state.prefs.tone = els.toneSel.value;
+      state.prefs.context = els.contextSel.value;
+      state.prefs.details = els.detailTxt.value;
+      saveJSON(LS_KEYS.prefs, state.prefs);
+    }
+
+    function resetApp() {
+      state.phase = "idle";
+      state.current = null;
+      state.statusMsg = "";
+      state.errorMsg = "";
+      state.lastText = "";
+      renderStatus();
+      render();
+      setStatus("Reset complete.", { ok: true });
+    }
+
+    function handleGenerate() {
+      readPrefsFromUI();
+      setError("");
+
+      setPhase("generating");
+      els.complimentText.textContent = "Generating…";
+
+      window.setTimeout(() => {
+        try {
+          const item = generateCompliment();
+          state.current = item;
+          state.lastText = item.text;
+          addToHistory(item);
+          setPhase("generated");
+          setStatus(`Generated • <strong>${item.quality.grade}</strong>`, { ok: true });
+        } catch (err) {
+          setPhase("error");
+          setError(err?.message || "Something went wrong.");
+        }
+      }, 180);
+    }
+
+    async function handleCopy() {
+      if (!state.current) return;
+      await copyToClipboard(state.current.text);
+    }
+
+    async function handleShare() {
+      if (!state.current) return;
+      await shareCompliment(state.current);
+    }
+
+    function handleFavorite() {
+      if (!state.current) return;
+      toggleFavorite(state.current);
+      render();
+    }
+
+    /* ==========================================================
+       Init
+       ========================================================== */
+
+    function hydrateFromUrl() {
+      try {
+        const url = new URL(window.location.href);
+        const c = url.searchParams.get("c");
+        const tone = url.searchParams.get("t");
+        const target = url.searchParams.get("g");
+        const context = url.searchParams.get("x");
+
+        if (tone && DATA.tones[tone]) state.prefs.tone = tone;
+        if (target && DATA.targets[target]) state.prefs.target = target;
+        if (context && DATA.contexts[context]) state.prefs.context = context;
+
+        if (c) {
+          const text = normalizeText(c);
+          const meta = { target: state.prefs.target, tone: state.prefs.tone, context: state.prefs.context, details: "" };
+          const id = hashId(`${meta.target}|${meta.tone}|${meta.context}|${text}`);
+          const quality = scoreQuality(text, meta);
+          const item = { id, text, meta, quality, ts: Date.now() };
+          state.current = item;
+          state.lastText = text;
+          addToHistory(item);
+          setPhase("generated");
+          setStatus("Loaded from shared link.", { ok: true });
+        }
+      } catch {}
+    }
+
+    function wireEvents() {
+      [els.targetSel, els.toneSel, els.contextSel, els.detailTxt].forEach((el) => {
+        el.addEventListener("change", readPrefsFromUI);
+        el.addEventListener("input", readPrefsFromUI);
+      });
+
+      els.generateBtn.addEventListener("click", handleGenerate);
+      els.copyBtn.addEventListener("click", handleCopy);
+      els.shareBtn.addEventListener("click", handleShare);
+      els.favBtn.addEventListener("click", handleFavorite);
+      els.resetAppBtn.addEventListener("click", resetApp);
+
+      els.clearHistoryBtn.addEventListener("click", () => {
+        clearHistory();
+        render();
+      });
+
+      els.clearFavBtn.addEventListener("click", () => {
+        clearFavorites();
+        render();
+      });
+
+      document.addEventListener("keydown", (e) => {
+        const isMac = navigator.platform.toLowerCase().includes("mac");
+        const mod = isMac ? e.metaKey : e.ctrlKey;
+        if (mod && e.key === "Enter") {
+          e.preventDefault();
+          handleGenerate();
+        }
+      });
+    }
+
+    (function init() {
+      loadAll();
+      hydrateFromUrl();
+      wireEvents();
+      renderStatus();
+      render();
+
+      if (!state.current) {
+        setStatus("Tip: Ctrl/Cmd + Enter generates a new compliment.");
+      }
+    })();
+  </script>
+</body>
+</html>
